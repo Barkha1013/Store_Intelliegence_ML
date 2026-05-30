@@ -3,20 +3,21 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Store Intelligence API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: stores
+    description: Store analytics
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +25,216 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /stores:
+    get:
+      operationId: listStores
+      tags: [stores]
+      summary: List all stores
+      responses:
+        "200":
+          description: List of stores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StoreInfo"
+
+  /stores/{storeId}/metrics:
+    get:
+      operationId: getStoreMetrics
+      tags: [stores]
+      summary: Get real-time store metrics
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Store metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoreMetrics"
+
+  /stores/{storeId}/funnel:
+    get:
+      operationId: getStoreFunnel
+      tags: [stores]
+      summary: Get conversion funnel
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Conversion funnel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversionFunnel"
+
+  /stores/{storeId}/heatmap:
+    get:
+      operationId: getStoreHeatmap
+      tags: [stores]
+      summary: Get zone heatmap data
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Heatmap zones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HeatmapZone"
+
+  /stores/{storeId}/anomalies:
+    get:
+      operationId: getStoreAnomalies
+      tags: [stores]
+      summary: Get detected anomalies
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Anomaly list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Anomaly"
+
+  /stores/{storeId}/traffic:
+    get:
+      operationId: getStoreTraffic
+      tags: [stores]
+      summary: Get hourly traffic over the last 7 days
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Hourly traffic series
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TrafficPoint"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    StoreInfo:
+      type: object
+      required: [store_id, name, city]
+      properties:
+        store_id:
+          type: string
+        name:
+          type: string
+        city:
+          type: string
+
+    StoreMetrics:
+      type: object
+      required: [store_id, unique_visitors, conversion_rate, avg_dwell_ms, total_revenue_inr, footfall_today, staff_count]
+      properties:
+        store_id:
+          type: string
+        unique_visitors:
+          type: integer
+        conversion_rate:
+          type: number
+        avg_dwell_ms:
+          type: integer
+        total_revenue_inr:
+          type: number
+        footfall_today:
+          type: integer
+        staff_count:
+          type: integer
+
+    ConversionFunnel:
+      type: object
+      required: [store_id, entered, browsed, reached_billing, converted, avg_basket_inr]
+      properties:
+        store_id:
+          type: string
+        entered:
+          type: integer
+        browsed:
+          type: integer
+        reached_billing:
+          type: integer
+        converted:
+          type: integer
+        avg_basket_inr:
+          type: number
+
+    HeatmapZone:
+      type: object
+      required: [zone_id, label, visitor_count, avg_dwell_ms, score]
+      properties:
+        zone_id:
+          type: string
+        label:
+          type: string
+        visitor_count:
+          type: integer
+        avg_dwell_ms:
+          type: integer
+        score:
+          type: number
+
+    Anomaly:
+      type: object
+      required: [anomaly_id, type, severity, message, detected_at]
+      properties:
+        anomaly_id:
+          type: string
+        type:
+          type: string
+        severity:
+          type: string
+        message:
+          type: string
+        detected_at:
+          type: string
+
+    TrafficPoint:
+      type: object
+      required: [hour, day, visitors]
+      properties:
+        hour:
+          type: integer
+        day:
+          type: string
+        visitors:
+          type: integer

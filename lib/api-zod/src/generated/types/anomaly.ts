@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface Anomaly {
+  anomaly_id: string;
+  type: string;
+  severity: string;
+  message: string;
+  detected_at: string;
 }

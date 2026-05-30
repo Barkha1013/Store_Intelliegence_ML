@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface HeatmapZone {
+  zone_id: string;
+  label: string;
+  visitor_count: number;
+  avg_dwell_ms: number;
+  score: number;
 }
