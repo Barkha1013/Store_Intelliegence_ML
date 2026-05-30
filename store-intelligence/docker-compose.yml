@@ -1,0 +1,72 @@
+version: "3.9"
+
+services:
+  # ─────────────────────────────────────────────────────────────────────────
+  # API — FastAPI + SQLite, always-running REST service
+  # ─────────────────────────────────────────────────────────────────────────
+  api:
+    build: .
+    container_name: store_intelligence_api
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_PATH=/data/store_intelligence.db
+      - EVENTS_JSONL=/data/events.jsonl
+      - PORT=8000
+      - LOG_LEVEL=INFO
+    volumes:
+      - store_data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Pipeline — YOLOv8 detection, runs once then exits
+  # Depends on the API being healthy before ingesting events
+  # ─────────────────────────────────────────────────────────────────────────
+  pipeline:
+    build: .
+    container_name: store_intelligence_pipeline
+    command: ["bash", "pipeline/run.sh"]
+    environment:
+      - STORE_LAYOUT=/data/store_layout.json
+      - CLIPS_DIR=/data/clips
+      - POS_CSV=/data/pos_transactions.csv
+      - EVENTS_JSONL=/data/events.jsonl
+      - YOLO_MODEL=yolov8n.pt
+      - API_URL=http://api:8000
+      - PYTHONPATH=/app
+    volumes:
+      - store_data:/data
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: "no"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Dashboard — Rich terminal dashboard, reads from API every 2s
+  # ─────────────────────────────────────────────────────────────────────────
+  dashboard:
+    build: .
+    container_name: store_intelligence_dashboard
+    command: ["python", "dashboard/live.py", "STORE_BLR_002", "--api", "http://api:8000"]
+    environment:
+      - API_URL=http://api:8000
+      - EVENTS_JSONL=/data/events.jsonl
+      - PYTHONPATH=/app
+    volumes:
+      - store_data:/data
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+
+volumes:
+  store_data:
+    driver: local

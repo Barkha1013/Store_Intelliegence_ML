@@ -1,45 +1,93 @@
-# [Project name]
+# Store Intelligence
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Offline retail analytics pipeline for Apex Retail — transforms raw CCTV footage into real-time store metrics.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+### Quick Start (Docker)
+```bash
+cd store-intelligence
+cp .env.example .env
+docker compose up --build
+# Then: docker compose exec pipeline bash pipeline/run.sh
+```
+
+### Running Tests
+```bash
+cd store-intelligence
+pytest tests/ -v                   # unit + integration tests (62 tests)
+pytest assertions.py -v            # 10 spec assertions (CI gate)
+```
+
+### API Server (dev, outside Docker)
+```bash
+cd store-intelligence
+DB_PATH=/tmp/dev.db uvicorn app.main:app --port 8000 --reload
+```
+
+### Dashboard
+```bash
+python store-intelligence/dashboard/live.py STORE_BLR_002 --api http://localhost:8000
+```
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Python 3.11, FastAPI, aiosqlite (async SQLite), Pydantic v2, structlog (JSON logs)
+- Detection: YOLOv8n (ultralytics) + ByteTrack, cross-camera Re-ID via cosine distance
+- Docker Compose: api + pipeline + dashboard services on shared `/data` volume
+- Tests: pytest + pytest-asyncio, httpx ASGI transport, anyio (asyncio + trio backends)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+```
+store-intelligence/
+├── pipeline/          # YOLOv8 detection + ByteTrack + Re-ID
+│   ├── detect.py      # Main detection script
+│   ├── tracker.py     # Re-ID registry, CameraTracker state
+│   ├── emit.py        # Event builder + JSONL emission
+│   └── run.sh         # Process all clips → ingest
+├── app/               # FastAPI REST API
+│   ├── main.py        # Entrypoint, structlog setup
+│   ├── models.py      # Pydantic schemas (source of truth)
+│   ├── db.py          # aiosqlite + WAL + dynamic DB_PATH
+│   ├── ingestion.py   # POST /events/ingest
+│   ├── metrics.py     # GET /stores/{id}/metrics
+│   ├── funnel.py      # GET /stores/{id}/funnel
+│   ├── heatmap.py     # GET /stores/{id}/heatmap
+│   ├── anomalies.py   # GET /stores/{id}/anomalies
+│   └── health.py      # GET /health
+├── dashboard/live.py  # Rich terminal dashboard (replays events 10×)
+├── tests/             # 3 test files, 62 tests total
+├── assertions.py      # 10 spec-required CI assertions
+├── data/              # Sample store_layout.json, POS CSV, events JSONL
+├── docs/DESIGN.md     # Architecture, data flow, AI decisions
+├── docs/CHOICES.md    # 3 deep-dive architecture decisions
+├── docker-compose.yml
+└── Dockerfile
+```
+
+- **Event schema source of truth**: `store-intelligence/app/models.py`
+- **DB schema**: `store-intelligence/app/db.py`
+- **API contracts**: `store-intelligence/app/models.py` (Pydantic response models)
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+1. **YOLOv8n** chosen for detection (CPU-capable, native ByteTrack integration). Swap `--model` flag for YOLOv8s for higher accuracy.
+2. **visitor_id** is deterministic: `VIS_` + `sha256(store_id + tracker_id + session_start_frame)[:6]`. Re-runs produce identical IDs — safe for idempotent ingest.
+3. **Sessions materialised at ingest time** — `sessions` table updated as side-effect of every ENTRY/REENTRY/EXIT event. Funnel queries hit `sessions`, not raw events.
+4. **Timestamps** are always `clip_start_datetime + (frame_number / fps)` — never system time.
+5. **DB_PATH** read dynamically via `get_db_path()` (not module-level constant) so pytest fixtures can override per-test with `os.environ["DB_PATH"]`.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
-
-## User preferences
-
-_Populate as you build — explicit user instructions worth remembering across sessions._
+6 REST endpoints covering real-time metrics, conversion funnel, zone heatmap, anomaly detection, and system health for a retail CCTV analytics pipeline.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- `DB_PATH` must be read via `get_db_path()`, never as a module-level constant — test fixtures override env at runtime.
+- `pytest assertions.py` runs from the `store-intelligence/` directory (needs `PYTHONPATH=.`).
+- Pipeline requires `ultralytics` and `cv2`; on CPU-only envs it emits placeholder STORE_IDLE events.
 
-## Pointers
+## User preferences
 
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+_Populate as you build._

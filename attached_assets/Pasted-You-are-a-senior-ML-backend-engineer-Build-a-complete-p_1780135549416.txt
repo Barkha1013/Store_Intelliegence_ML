@@ -1,0 +1,247 @@
+You are a senior ML/backend engineer. Build a complete, production-ready Store 
+Intelligence system end-to-end. Below is the full spec. Follow every requirement 
+exactly. Ask no clarifying questions — make reasoned decisions and document them.
+
+════════════════════════════════════════════════════
+CONTEXT
+════════════════════════════════════════════════════
+Retail chain Apex Retail needs offline store analytics from raw CCTV footage.
+You are building a 4-stage pipeline: Detection → Event Stream → REST API → Dashboard.
+
+Dataset you have access to in ./data/:
+  - clips/          CCTV clips: 5 stores × 3 cameras × 20min @ 1080p 15fps (face-blurred)
+  - store_layout.json   Zone definitions, camera coverage, open hours per store
+  - pos_transactions.csv  store_id, transaction_id, timestamp, basket_value_inr
+  - sample_events.jsonl  200 sample events for schema validation
+  - assertions.py    10 test assertions your API must pass
+
+════════════════════════════════════════════════════
+REPO STRUCTURE (create exactly this)
+════════════════════════════════════════════════════
+/store-intelligence/
+├── pipeline/
+│   ├── detect.py       # Main detection + tracking script
+│   ├── tracker.py      # Re-ID / tracking logic
+│   ├── emit.py         # Event schema + emission to JSONL
+│   └── run.sh          # Single command: process all clips → events.jsonl
+├── app/
+│   ├── main.py         # FastAPI entrypoint
+│   ├── models.py       # Pydantic event schema + response models
+│   ├── ingestion.py    # POST /events/ingest — dedup, validate, store
+│   ├── metrics.py      # GET /stores/{id}/metrics
+│   ├── funnel.py       # GET /stores/{id}/funnel
+│   ├── heatmap.py      # GET /stores/{id}/heatmap
+│   ├── anomalies.py    # GET /stores/{id}/anomalies
+│   └── health.py       # GET /health
+├── dashboard/
+│   └── live.py         # Rich terminal dashboard (or web UI for bonus)
+├── tests/
+│   ├── test_pipeline.py
+│   ├── test_metrics.py
+│   └── test_anomalies.py
+├── docs/
+│   ├── DESIGN.md
+│   └── CHOICES.md
+├── docker-compose.yml
+├── Dockerfile
+└── README.md
+
+════════════════════════════════════════════════════
+PART A — DETECTION PIPELINE (30 pts)
+════════════════════════════════════════════════════
+Build pipeline/detect.py using:
+  - Detection model: YOLOv8n or YOLOv8s (ultralytics) — justify choice in CHOICES.md
+  - Tracking: ByteTrack (built into ultralytics) — one tracker instance per camera
+  - Re-ID: OSNet (torchreid) or bounding-box trajectory cosine distance for cross-camera dedup
+  - Staff detection: classify by bounding-box aspect ratio + color histogram of torso region
+    vs a reference uniform color loaded from store_layout.json["staff_uniform_hsv"]
+
+Handle ALL these edge cases explicitly in code:
+  1. GROUP ENTRY: if N bbox centroids cross the entry line within 2 seconds, emit N ENTRY events
+  2. STAFF: set is_staff=True, EXCLUDE from all customer metrics but still emit events
+  3. RE-ENTRY: if same Re-ID embedding matches a visitor_id that previously had EXIT, emit REENTRY
+     not a new ENTRY — reuse the same visitor_id
+  4. PARTIAL OCCLUSION: if detection confidence < 0.45, still emit the event; set confidence field
+     accurately — never round up
+  5. BILLING QUEUE: maintain a queue_depth counter per store; emit BILLING_QUEUE_JOIN when
+     a visitor enters the billing zone while queue_depth > 0
+  6. CAMERA OVERLAP: cross-camera dedup using Re-ID — if the same embedding appears on both
+     entry cam and floor cam within 30s, treat as same visitor_id, don't double-count
+  7. EMPTY STORE: if no detections for 5+ minutes, emit a STORE_IDLE synthetic event (extend 
+     the schema — document this extension in DESIGN.md)
+
+Event schema (emit exactly this, validated by Pydantic):
+{
+  "event_id": "uuid-v4",
+  "store_id": "STORE_BLR_002",
+  "camera_id": "CAM_ENTRY_01",
+  "visitor_id": "VIS_c8a2f1",
+  "event_type": "ZONE_DWELL",          // ENTRY|EXIT|ZONE_ENTER|ZONE_EXIT|ZONE_DWELL|
+                                        // BILLING_QUEUE_JOIN|BILLING_QUEUE_ABANDON|REENTRY
+  "timestamp": "2026-03-03T14:22:10Z", // ISO-8601 UTC — clip start time + frame/fps offset
+  "zone_id": "SKINCARE",               // null for ENTRY/EXIT
+  "dwell_ms": 8400,
+  "is_staff": false,
+  "confidence": 0.91,
+  "metadata": {
+    "queue_depth": null,
+    "sku_zone": "MOISTURISER",
+    "session_seq": 5
+  }
+}
+
+BILLING_QUEUE_ABANDON logic:
+  - Visitor entered billing zone (BILLING_QUEUE_JOIN emitted)
+  - Visitor exits billing zone via EXIT or ZONE_EXIT
+  - No POS transaction for this store within 5 minutes after exit
+  - → emit BILLING_QUEUE_ABANDON retroactively (mark in DB, emit on next API poll)
+
+════════════════════════════════════════════════════
+PART B — INTELLIGENCE API (35 pts)
+════════════════════════════════════════════════════
+Build with FastAPI + SQLite (use aiosqlite for async). Schema:
+
+Tables:
+  events(event_id PK, store_id, camera_id, visitor_id, event_type, timestamp,
+         zone_id, dwell_ms, is_staff, confidence, metadata JSON, ingested_at)
+  sessions(session_id PK, store_id, visitor_id, entry_time, exit_time,
+           converted BOOL, basket_value_inr REAL)
+
+Endpoints — implement all of these:
+
+POST /events/ingest
+  - Accept batch up to 500 events
+  - Validate each event against Pydantic schema
+  - Deduplicate by event_id (idempotent — calling twice with same payload = same result)
+  - Partial success: if 3 of 500 are malformed, ingest 497 and return errors for 3
+  - Response: {"ingested": 497, "duplicates": 0, "errors": [{"event_id":..., "reason":...}]}
+  - Log: trace_id, store_id, latency_ms, event_count, status_code
+
+GET /stores/{store_id}/metrics
+  - Returns for today (UTC):
+    unique_visitors (int, customer-only — exclude is_staff=true)
+    conversion_rate (float 0-1)
+    avg_dwell_per_zone (dict: zone_id → avg_ms)
+    current_queue_depth (int)
+    abandonment_rate (float 0-1)
+  - Zero-purchase stores: conversion_rate = 0.0, not null, not error
+  - Real-time: query DB live, no caching
+
+GET /stores/{store_id}/funnel
+  - Session is the unit (not raw events)
+  - Stages: entry_count → zone_visit_count → billing_queue_count → purchase_count
+  - drop_off_pct between each stage
+  - Re-entries: a visitor_id that REENTRY-ed counts as 1 unique visitor in funnel
+
+GET /stores/{store_id}/heatmap
+  - Per zone: visit_frequency (int), avg_dwell_ms (int), normalised_score (0-100)
+  - data_confidence: "LOW" if fewer than 20 sessions in the window, else "HIGH"
+
+GET /stores/{store_id}/anomalies
+  - Detect:
+    BILLING_QUEUE_SPIKE: queue_depth > 5 for 3+ consecutive minutes → CRITICAL
+    CONVERSION_DROP: today's rate < 7-day average × 0.8 → WARN
+    DEAD_ZONE: a zone with 0 visits in last 30 minutes (during store open hours) → INFO
+    STALE_CAMERA: no events from a camera_id for 10+ minutes → WARN
+  - Each anomaly: {type, severity, description, suggested_action, detected_at}
+
+GET /health
+  - {status: "ok"|"degraded", last_event_per_store: {store_id: timestamp},
+     stale_feeds: [store_id], db_status: "connected"|"unavailable", uptime_seconds}
+  - If DB unavailable → still return 200 with db_status:"unavailable", not 500
+
+════════════════════════════════════════════════════
+PART C — PRODUCTION READINESS (20 pts)
+════════════════════════════════════════════════════
+docker-compose.yml:
+  - Services: api (FastAPI), pipeline (detect.py), dashboard (live.py)
+  - api depends_on pipeline output volume
+  - No manual steps beyond: git clone → docker compose up
+
+Structured logging (use structlog or Python logging with JSON formatter):
+  Every request must log: trace_id (uuid), store_id, endpoint, latency_ms,
+  event_count (ingest only), status_code
+
+Graceful degradation:
+  - DB unavailable → HTTP 503 {"error": "database_unavailable", "retry_after": 30}
+  - No raw tracebacks in any response body
+
+Tests (pytest, coverage > 70%):
+  Each test file must start with this header block:
+  # PROMPT: [paste the AI prompt you used to generate this file]
+  # CHANGES MADE: [list what you manually changed and why]
+
+  test_pipeline.py: test ENTRY count, staff exclusion, re-entry detection, group entry
+  test_metrics.py: test conversion_rate=0 for empty store, funnel dedup, heatmap LOW confidence
+  test_anomalies.py: test queue spike threshold, conversion drop vs 7-day avg, dead zone detection
+
+README.md — must include these exact 5 commands:
+  git clone <repo>
+  cd store-intelligence
+  cp .env.example .env
+  docker compose up --build
+  # Then: docker compose exec pipeline bash run.sh
+
+════════════════════════════════════════════════════
+PART D — AI ENGINEERING DOCS (15 pts)
+════════════════════════════════════════════════════
+DESIGN.md must include:
+  - Architecture overview (plain language, not bullet soup)
+  - Data flow from frame to API response
+  - Section "AI-Assisted Decisions": exactly 3 decisions where an LLM shaped your
+    design — for each: what you asked, what it suggested, whether you agreed or overrode it
+    and why
+  - Known limitations and how the system degrades gracefully
+
+CHOICES.md must cover these 3 decisions in depth (each with: options considered,
+what AI suggested, what you chose, why):
+  1. Detection model choice (YOLOv8 vs RT-DETR vs MediaPipe vs other)
+  2. Event schema design (especially visitor_id assignment and re-entry handling)
+  3. One API architecture choice (storage engine, async vs sync, session computation strategy)
+
+Minimum 250 words each. Must read as personal reasoning, not generated filler.
+
+════════════════════════════════════════════════════
+PART E — LIVE DASHBOARD BONUS (+10 pts)
+════════════════════════════════════════════════════
+dashboard/live.py using the `rich` library:
+  - Live panel updating every 2 seconds
+  - Shows: unique_visitors, conversion_rate, current_queue_depth, top zone by dwell
+  - Reads from GET /stores/{id}/metrics every 2s via httpx
+  - Simulated real-time: replay events.jsonl at 10× speed, POST to /events/ingest,
+    dashboard reflects updates live
+  - Note the local URL in README: "Dashboard: run `python dashboard/live.py STORE_BLR_002`"
+
+════════════════════════════════════════════════════
+CRITICAL REQUIREMENTS
+════════════════════════════════════════════════════
+1. The timestamp field in every event MUST be derived as:
+   clip_start_datetime + (frame_number / fps) seconds — not system time
+   Load clip_start_datetime from store_layout.json["clips"][camera_id]["start_time"]
+
+2. visitor_id format: "VIS_" + first 6 chars of sha256(store_id + tracker_id + session_start_frame)
+
+3. All customer metrics MUST filter WHERE is_staff = FALSE
+
+4. The funnel endpoint MUST use sessions table, not raw event counts
+
+5. POST /events/ingest MUST be idempotent — running the same payload twice must not
+   double the visitor count or conversion rate
+
+6. docker compose up must bring the API to :8000 with no manual steps
+
+7. assertions.py from the dataset must all pass: run pytest assertions.py as part of CI
+
+Now build this completely. Start with the repo scaffold, then implement in this order:
+  1. models.py (Pydantic schemas — foundation for everything else)
+  2. pipeline/emit.py (event emission logic)
+  3. pipeline/detect.py (detection + tracking)
+  4. app/ingestion.py → app/metrics.py → app/funnel.py → app/heatmap.py → app/anomalies.py
+  5. app/main.py (wire all routers)
+  6. tests/ (all three files with PROMPT headers)
+  7. docker-compose.yml + Dockerfile
+  8. dashboard/live.py
+  9. docs/DESIGN.md + docs/CHOICES.md
+  10. README.md
+
+For every non-trivial decision made while building, add a comment: # DECISION: [what and why]

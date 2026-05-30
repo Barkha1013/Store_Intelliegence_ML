@@ -1,0 +1,115 @@
+{
+  "stores": {
+    "STORE_BLR_001": {
+      "name": "Apex Retail Bangalore HSR Layout",
+      "open_hours": {"open": "09:00", "close": "21:00"},
+      "fps": 15,
+      "entry_line_y": 540,
+      "exit_line_y": 500,
+      "billing_zone_id": "BILLING",
+      "staff_uniform_hsv": {"h_lo": 100, "h_hi": 130, "s_lo": 80, "v_lo": 60},
+      "cameras": {
+        "CAM_ENTRY_01": {"start_time": "2026-03-03T10:00:00Z", "role": "entry"},
+        "CAM_FLOOR_01": {"start_time": "2026-03-03T10:00:00Z", "role": "floor"},
+        "CAM_BILL_01":  {"start_time": "2026-03-03T10:00:00Z", "role": "billing"}
+      },
+      "zones": [
+        {"zone_id": "ENTRY_LOBBY",  "rect": {"x1": 0,    "y1": 480, "x2": 1920, "y2": 620}},
+        {"zone_id": "SKINCARE",     "rect": {"x1": 0,    "y1": 0,   "x2": 640,  "y2": 480}},
+        {"zone_id": "FASHION",      "rect": {"x1": 640,  "y1": 0,   "x2": 1280, "y2": 480}},
+        {"zone_id": "ELECTRONICS",  "rect": {"x1": 1280, "y1": 0,   "x2": 1920, "y2": 480}},
+        {"zone_id": "BILLING",      "rect": {"x1": 0,    "y1": 620, "x2": 1920, "y2": 1080}}
+      ]
+    },
+    "STORE_BLR_002": {
+      "name": "Apex Retail Bangalore Koramangala",
+      "open_hours": {"open": "10:00", "close": "22:00"},
+      "fps": 15,
+      "entry_line_y": 540,
+      "exit_line_y": 500,
+      "billing_zone_id": "BILLING",
+      "staff_uniform_hsv": {"h_lo": 10, "h_hi": 25, "s_lo": 100, "v_lo": 80},
+      "cameras": {
+        "CAM_ENTRY_01": {"start_time": "2026-03-03T10:00:00Z", "role": "entry"},
+        "CAM_FLOOR_01": {"start_time": "2026-03-03T10:00:00Z", "role": "floor"},
+        "CAM_BILL_01":  {"start_time": "2026-03-03T10:00:00Z", "role": "billing"}
+      },
+      "zones": [
+        {"zone_id": "ENTRY_LOBBY",  "rect": {"x1": 0,    "y1": 480, "x2": 1920, "y2": 620}},
+        {"zone_id": "MOISTURISER",  "rect": {"x1": 0,    "y1": 0,   "x2": 480,  "y2": 480}},
+        {"zone_id": "SKINCARE",     "rect": {"x1": 480,  "y1": 0,   "x2": 960,  "y2": 480}},
+        {"zone_id": "FASHION",      "rect": {"x1": 960,  "y1": 0,   "x2": 1440, "y2": 480}},
+        {"zone_id": "ELECTRONICS",  "rect": {"x1": 1440, "y1": 0,   "x2": 1920, "y2": 480}},
+        {"zone_id": "BILLING",      "rect": {"x1": 0,    "y1": 620, "x2": 1920, "y2": 1080}}
+      ]
+    },
+    "STORE_MUM_001": {
+      "name": "Apex Retail Mumbai Bandra",
+      "open_hours": {"open": "09:30", "close": "21:30"},
+      "fps": 15,
+      "entry_line_y": 540,
+      "exit_line_y": 500,
+      "billing_zone_id": "BILLING",
+      "staff_uniform_hsv": {"h_lo": 55, "h_hi": 75, "s_lo": 90, "v_lo": 70},
+      "cameras": {
+        "CAM_ENTRY_01": {"start_time": "2026-03-03T09:30:00Z", "role": "entry"},
+        "CAM_FLOOR_01": {"start_time": "2026-03-03T09:30:00Z", "role": "floor"},
+        "CAM_BILL_01":  {"start_time": "2026-03-03T09:30:00Z", "role": "billing"}
+      },
+      "zones": [
+        {"zone_id": "ENTRY_LOBBY", "rect": {"x1": 0, "y1": 480, "x2": 1920, "y2": 620}},
+        {"zone_id": "JEWELLERY",   "rect": {"x1": 0, "y1": 0,   "x2": 640,  "y2": 480}},
+        {"zone_id": "APPAREL",     "rect": {"x1": 640, "y1": 0, "x2": 1280, "y2": 480}},
+        {"zone_id": "FOOTWEAR",    "rect": {"x1": 1280,"y1": 0, "x2": 1920, "y2": 480}},
+        {"zone_id": "BILLING",     "rect": {"x1": 0,   "y1": 620,"x2": 1920, "y2": 1080}}
+      ]
+    },
+    "STORE_DEL_001": {
+      "name": "Apex Retail Delhi Connaught Place",
+      "open_hours": {"open": "10:00", "close": "22:00"},
+      "fps": 15,
+      "entry_line_y": 540,
+      "exit_line_y": 500,
+      "billing_zone_id": "BILLING",
+      "staff_uniform_hsv": {"h_lo": 0, "h_hi": 10, "s_lo": 120, "v_lo": 60},
+      "cameras": {
+        "CAM_ENTRY_01": {"start_time": "2026-03-03T10:00:00Z", "role": "entry"},
+        "CAM_FLOOR_01": {"start_time": "2026-03-03T10:00:00Z", "role": "floor"},
+        "CAM_BILL_01":  {"start_time": "2026-03-03T10:00:00Z", "role": "billing"}
+      },
+      "zones": [
+        {"zone_id": "ENTRY_LOBBY", "rect": {"x1": 0, "y1": 480, "x2": 1920, "y2": 620}},
+        {"zone_id": "MENSWEAR",    "rect": {"x1": 0, "y1": 0,   "x2": 640,  "y2": 480}},
+        {"zone_id": "WOMENSWEAR",  "rect": {"x1": 640, "y1": 0, "x2": 1280, "y2": 480}},
+        {"zone_id": "ACCESSORIES", "rect": {"x1": 1280,"y1": 0, "x2": 1920, "y2": 480}},
+        {"zone_id": "BILLING",     "rect": {"x1": 0,   "y1": 620,"x2": 1920, "y2": 1080}}
+      ]
+    },
+    "STORE_CHN_001": {
+      "name": "Apex Retail Chennai T Nagar",
+      "open_hours": {"open": "09:00", "close": "21:00"},
+      "fps": 15,
+      "entry_line_y": 540,
+      "exit_line_y": 500,
+      "billing_zone_id": "BILLING",
+      "staff_uniform_hsv": {"h_lo": 30, "h_hi": 50, "s_lo": 90, "v_lo": 80},
+      "cameras": {
+        "CAM_ENTRY_01": {"start_time": "2026-03-03T09:00:00Z", "role": "entry"},
+        "CAM_FLOOR_01": {"start_time": "2026-03-03T09:00:00Z", "role": "floor"},
+        "CAM_BILL_01":  {"start_time": "2026-03-03T09:00:00Z", "role": "billing"}
+      },
+      "zones": [
+        {"zone_id": "ENTRY_LOBBY", "rect": {"x1": 0, "y1": 480, "x2": 1920, "y2": 620}},
+        {"zone_id": "SAREES",      "rect": {"x1": 0, "y1": 0,   "x2": 640,  "y2": 480}},
+        {"zone_id": "KURTAS",      "rect": {"x1": 640, "y1": 0, "x2": 1280, "y2": 480}},
+        {"zone_id": "KIDS",        "rect": {"x1": 1280,"y1": 0, "x2": 1920, "y2": 480}},
+        {"zone_id": "BILLING",     "rect": {"x1": 0,   "y1": 620,"x2": 1920, "y2": 1080}}
+      ]
+    }
+  },
+  "clips": {
+    "CAM_ENTRY_01": {"start_time": "2026-03-03T10:00:00Z"},
+    "CAM_FLOOR_01": {"start_time": "2026-03-03T10:00:00Z"},
+    "CAM_BILL_01":  {"start_time": "2026-03-03T10:00:00Z"}
+  }
+}
