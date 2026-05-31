@@ -29,3 +29,14 @@ to = "/index.html"
 [services.env]
 PORT = "23183"
 BASE_PATH = "/"
+
+[[services]]
+name = "streamlit"
+paths = [ "/streamlit" ]
+localPort = 5000
+
+[services.development]
+run = "streamlit run /home/runner/workspace/store-intelligence/dashboard/streamlit_app.py --server.port 5000 --server.address 0.0.0.0 --server.headless true --browser.gatherUsageStats false --server.baseUrlPath streamlit"
+
+[services.development.env]
+DB_PATH = "/home/runner/workspace/store-intelligence/data/store_intelligence.db"
