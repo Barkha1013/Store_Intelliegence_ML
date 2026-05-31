@@ -1,0 +1,102 @@
+{
+  "generated_at": "2026-05-31T09:13:35.885202+00:00",
+  "stores": [
+    {
+      "store_id": "STORE_BLR_001",
+      "name": "STORE_BLR_001",
+      "city": "\u2014"
+    }
+  ],
+  "metrics": {
+    "STORE_BLR_001": {
+      "store_id": "STORE_BLR_001",
+      "unique_visitors": 279,
+      "conversion_rate": 0.0,
+      "avg_dwell_ms": 3184,
+      "total_revenue_inr": 0.0,
+      "footfall_today": 279,
+      "staff_count": 11
+    }
+  },
+  "funnel": {
+    "STORE_BLR_001": {
+      "store_id": "STORE_BLR_001",
+      "entered": 279,
+      "browsed": 279,
+      "reached_billing": 165,
+      "converted": 0,
+      "avg_basket_inr": 0.0
+    }
+  },
+  "heatmap": {
+    "STORE_BLR_001": [
+      {
+        "zone_id": "ENTRY_LOBBY",
+        "label": "Entry Lobby",
+        "visitor_count": 59,
+        "avg_dwell_ms": 800,
+        "score": 1.0
+      },
+      {
+        "zone_id": "BILLING",
+        "label": "Billing",
+        "visitor_count": 40,
+        "avg_dwell_ms": 6278,
+        "score": 0.678
+      },
+      {
+        "zone_id": "ELECTRONICS",
+        "label": "Electronics",
+        "visitor_count": 18,
+        "avg_dwell_ms": 5344,
+        "score": 0.305
+      },
+      {
+        "zone_id": "SKINCARE",
+        "label": "Skincare",
+        "visitor_count": 10,
+        "avg_dwell_ms": 1813,
+        "score": 0.169
+      },
+      {
+        "zone_id": "FASHION",
+        "label": "Fashion",
+        "visitor_count": 8,
+        "avg_dwell_ms": 1551,
+        "score": 0.136
+      }
+    ]
+  },
+  "anomalies": {
+    "STORE_BLR_001": [
+      {
+        "anomaly_id": "ANO_STORE_BLR_001_CROWD",
+        "type": "CROWD_SURGE",
+        "severity": "CRITICAL",
+        "message": "165 billing queue joins detected \u2014 peak congestion",
+        "detected_at": "2026-05-31T09:13:35.878501+00:00"
+      },
+      {
+        "anomaly_id": "ANO_STORE_BLR_001_CONV",
+        "type": "CONVERSION_DROP",
+        "severity": "WARN",
+        "message": "Conversion rate 0.0% is below 20% threshold",
+        "detected_at": "2026-05-31T09:13:35.878501+00:00"
+      }
+    ]
+  },
+  "traffic": {
+    "STORE_BLR_001": [
+      {
+        "day": "Sat",
+        "hour": 11,
+        "visitors": 46
+      },
+      {
+        "day": "Tue",
+        "hour": 10,
+        "visitors": 233
+      }
+    ]
+  }
+}

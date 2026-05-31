@@ -118,13 +118,10 @@ def run_pipeline() -> bool:
     return result.returncode == 0
 
 
-def ingest_into_api() -> None:
-    """POST events to the local FastAPI server."""
-    try:
-        import requests  # type: ignore
-    except ImportError:
-        print("[ingest] requests not installed, skipping API ingest")
-        return
+def ingest_into_sqlite() -> None:
+    """Ingest events.jsonl directly into SQLite — no HTTP server needed."""
+    import asyncio
+    import aiosqlite as _aiosq
 
     if not OUTPUT_JSONL.exists():
         print("[ingest] No events file, skipping")
@@ -144,24 +141,37 @@ def ingest_into_api() -> None:
         print("[ingest] No events to ingest")
         return
 
-    url = f"{API_URL}/events/ingest"
-    batch_size = 500
-    ingested = 0
-    errors = 0
+    os.environ["DB_PATH"] = str(DB_PATH)
 
-    print(f"[ingest] Sending {len(events)} events to {url} ...")
-    for i in range(0, len(events), batch_size):
-        chunk = events[i : i + batch_size]
-        try:
-            import requests  # type: ignore
-            r = requests.post(url, json={"events": chunk}, timeout=30)
-            body = r.json()
-            ingested += body.get("ingested", 0)
-            errors   += len(body.get("errors", []))
-        except Exception as exc:
-            print(f"[ingest] batch {i // batch_size} failed: {exc}")
+    async def _ingest() -> None:
+        sys.path.insert(0, str(Path(__file__).parent))
+        from app.main import create_app  # type: ignore
+        from httpx import AsyncClient, ASGITransport  # type: ignore
 
-    print(f"[ingest] Done — ingested={ingested}, errors={errors}")
+        app = create_app()
+        batch_size = 200
+        ingested = 0
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            for i in range(0, len(events), batch_size):
+                chunk = events[i : i + batch_size]
+                r = await client.post("/events/ingest", json={"events": chunk})
+                body = r.json()
+                ingested += body.get("ingested", 0)
+        print(f"[ingest] Done — ingested {ingested} events into {DB_PATH}")
+
+    asyncio.run(_ingest())
+
+
+def export_json() -> None:
+    """Export SQLite data to JSON for the Node.js dashboard API."""
+    export_script = Path(__file__).parent / "export_dashboard_data.py"
+    if not export_script.exists():
+        print("[export] export_dashboard_data.py not found, skipping")
+        return
+    env = {**os.environ, "DB_PATH": str(DB_PATH), "PYTHONPATH": str(Path(__file__).parent)}
+    result = subprocess.run([sys.executable, str(export_script)], env=env)
+    if result.returncode != 0:
+        print("[export] Export failed — check output above")
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -199,8 +209,11 @@ def main() -> None:
         print("\n[ERROR] Pipeline failed — check output above")
         sys.exit(1)
 
-    # 5. Ingest
-    ingest_into_api()
+    # 5. Ingest into SQLite directly (no HTTP server needed)
+    ingest_into_sqlite()
+
+    # 6. Export JSON for the Node.js dashboard API
+    export_json()
 
     print("\n✓ Done! Refresh the dashboard to see real data.")
     print(f"  Events written to: {OUTPUT_JSONL}")
